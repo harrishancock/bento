@@ -1,0 +1,35 @@
+Vagrant.configure("2") do |config|
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.cpu_mode = 'custom'
+    libvirt.cpu_model = 'max'
+    # It appears that you can't just specify paths to firmware/nvram. The path to the firmware has
+    # to be one that libvirt recognizes, and has a configured nvram varstore template. For instance,
+    # if we specify /usr/share/AAVMF/AAVMF_CODE.fd as the firmware, it knows to use AAVMF_VARS.fd
+    # from the same directory as the varstore template.
+    #
+    # TODO(soon):  QEMU 4.1 uses a new firmware loading thing that maybe will change everything?
+    #   https://github.com/qemu/qemu/blob/master/docs/interop/firmware.json
+    libvirt.loader = '/usr/share/AAVMF/AAVMF_CODE.fd'
+    libvirt.nvram = ''
+    libvirt.machine_arch = 'aarch64'
+    libvirt.machine_type = 'virt'
+    # The default video_type, cirrus, is not supported by aarch64 virt.
+    libvirt.video_type = 'vga'
+    # The default ps2 keyboard is not supported by aarch64 virt.
+    libvirt.usb_controller :model => "qemu-xhci"
+    libvirt.input :type => "keyboard", :bus => "usb"
+  end
+
+  # nvram is needed for UEFI loading, but adding nvram makes it impossible to destroy the VM with
+  # Vagrant. :(
+  #   See https://github.com/vagrant-libvirt/vagrant-libvirt/issues/1027
+  config.trigger.before :destroy do |t|
+    t.info = "vagrant-libvirt doesn't do this right, I'll take it from here...!"
+    t.ruby do |env, machine|
+      uri = machine.provider_config.uri
+      domain_name = machine.provider.driver.get_domain(machine.id).name
+      system("virsh", "-c", uri, "destroy", domain_name)
+      system("virsh", "-c", uri, "undefine", domain_name, "--nvram", "--remove-all-storage")
+    end
+  end
+end
