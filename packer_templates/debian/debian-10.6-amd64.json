@@ -143,7 +143,9 @@
       ],
       "boot_wait": "10s",
       "cpus": "{{ user `cpus` }}",
+      "disk_compression": true,
       "disk_size": "{{user `disk_size`}}",
+      "format": "qcow2",
       "headless": "{{ user `headless` }}",
       "http_directory": "{{user `http_directory`}}",
       "iso_checksum": "{{user `iso_checksum`}}",
@@ -163,7 +165,28 @@
     {
       "output": "{{ user `build_directory` }}/{{user `box_basename`}}.{{.Provider}}.box",
       "type": "vagrant"
-    }
+    },
+    [
+      {
+        "type": "compress",
+	"output": "{{user `template`}}.qcow2.gz",
+	"compression_level": "9"
+      },
+      {
+        "type": "digitalocean-import",
+        "api_token": "{{user `do_api_token`}}",
+        "spaces_key": "{{user `do_spaces_key`}}",
+        "spaces_secret": "{{user `do_spaces_secret`}}",
+        "spaces_region": "ams3",
+        "space_name": "hlh",
+        "image_name": "{{user `template`}}",
+        "image_regions": "ams3",
+        "image_description": "Packer import {{timestamp}}",
+        "image_distribution": "Debian",
+        "image_tags": [],
+        "space_object_name": "{{user `template`}}-{{timestamp}}.qcow2.gz"
+      }
+    ]
   ],
   "provisioners": [
     {
@@ -185,7 +208,31 @@
         "{{template_dir}}/scripts/systemd.sh",
         "{{template_dir}}/../_common/virtualbox.sh",
         "{{template_dir}}/../ubuntu/scripts/vmware.sh",
-        "{{template_dir}}/../_common/parallels.sh",
+        "{{template_dir}}/../_common/parallels.sh"
+      ],
+      "type": "shell"
+    },
+    {
+      "environment_vars": [
+        "HOME_DIR=/home/vagrant"
+      ],
+      "execute_command": "echo 'vagrant' | {{.Vars}} sudo -S -E sh -eux '{{.Path}}'",
+      "expect_disconnect": true,
+      "scripts": [
+        "{{template_dir}}/scripts/cloud-init.sh"
+      ],
+      "type": "shell"
+    },
+    {
+      "environment_vars": [
+        "HOME_DIR=/home/vagrant",
+        "http_proxy={{user `http_proxy`}}",
+        "https_proxy={{user `https_proxy`}}",
+        "no_proxy={{user `no_proxy`}}"
+      ],
+      "execute_command": "echo 'vagrant' | {{.Vars}} sudo -S -E sh -eux '{{.Path}}'",
+      "expect_disconnect": true,
+      "scripts": [
         "{{template_dir}}/scripts/cleanup.sh",
         "{{template_dir}}/../_common/minimize.sh"
       ],
@@ -197,7 +244,10 @@
     "build_directory": "../../builds",
     "build_timestamp": "{{isotime \"20060102150405\"}}",
     "cpus": "1",
-    "disk_size": "65536",
+    "disk_size": "4096",
+    "do_api_token": "{{env `DIGITALOCEAN_API_TOKEN`}}",
+    "do_spaces_key": "{{env `DIGITALOCEAN_SPACES_ACCESS_KEY`}}",
+    "do_spaces_secret": "{{env `DIGITALOCEAN_SPACES_SECRET_KEY`}}",
     "git_revision": "__unknown_git_revision__",
     "guest_additions_url": "",
     "headless": "",
